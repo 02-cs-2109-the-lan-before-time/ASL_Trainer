@@ -31,3 +31,7 @@ function extractAsCSV(data) {
 }
 
 writeToCSVFile(data);
+
+module.exports = {
+    
+}

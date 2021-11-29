@@ -48,6 +48,7 @@ function createLabelButtons(labels) {
 
 function stopCollection(){
     console.log("stopped")
+    console.log("Length of DataSet:",DataClass.dataSet.length)
     console.log(DataClass.dataSet)
 }
 
@@ -107,9 +108,9 @@ function setClass(buttonId){
     curretClass = buttonId
 }
 
-function collectData() {
-     runCamera();
-    
+function collectData() {  
+  hands.onResults(onResults);
 }
 
-hands.onResults(onResults);
+runCamera();
+
