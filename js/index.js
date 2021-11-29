@@ -10,7 +10,7 @@ function startWebCam(event) {
     startButton.remove()
     getMedia(videoRef)
     let labels = prompt("Enter Labels:",)
-    console.log(labels.split(','))
+    //call makeLabel class method
     createLabelButtons()
     
     runCamera()
