@@ -1,41 +1,30 @@
-
 class CaptureData {
-    dataSet;
-    labels;
-    constructor(dataSet, labels) {
-        this.dataSet = dataSet;
-        this.labels = labels
-      }
-      get labels(){
-          return this.labels
-      }
-      get dataSet(){
-        return this.dataSet
-      }
-      makeLabels(labelStr){
-        labelStr = labelStr.split(',')
-        for(let i = 0; i < labelStr.length; i++){
-          this.labels[labelStr[i]] = i
-        }
-      }
-      addFramesToData(frame, classification){
-        let res = frame.reduce(
-          function(previousValue, currentValue) {
-            previousValue.push([currentValue.x, currentValue.y, currentValue.z])
-            return previousValue
-          },
-          []
-        )
-     
-        this.dataSet.push([...res, classification] )
+  dataSet;
+  labels;
+  constructor(dataSet, labels) {
+    this.dataSet = dataSet;
+    this.labels = labels;
+  }
+  get labels() {
+    return this.labels;
+  }
+  get dataSet() {
+    return this.dataSet;
+  }
+  makeLabels(labelStr) {
+    labelStr = labelStr.split(",");
+    for (let i = 0; i < labelStr.length; i++) {
+      this.labels[labelStr[i]] = i;
+    }
+  }
+  addFramesToData(frame, classification) {
+    let res = frame.reduce(function (previousValue, currentValue) {
+      previousValue.push(currentValue.x, currentValue.y, currentValue.z);
+      return previousValue;
+    }, []);
 
-      //   for(let i = 0; i < frame.length; i ++){
-      //     this.dataSet.push([frame[i].x, frame[i].y, frame[i].z,])
-      //     }
-          
-          
-      }
-
+    this.dataSet.push([...res, classification]);
+  }
 }
 
 // let test = new CaptureData([],{})
