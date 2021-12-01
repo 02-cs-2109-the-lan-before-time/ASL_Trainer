@@ -9,8 +9,6 @@ let currentClass;
 
 
 
-
-
 const hands = new Hands({
   locateFile: (file) => {
     return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
@@ -56,10 +54,8 @@ function createLabelButtons(labels) {
     console.log(DataClass.dataSet)
     console.log("labels", DataClass.labels)
     let df = new dfd.DataFrame(DataClass.dataSet)
-    //check indexs and colums
     df.print()
-    // tf.tensor(DataClass.dataSet).print()
-    dfd.to_csv(df, { fileName: "testOut.csv", download: true});
+    dfd.to_csv(df, { fileName: "A_D_Lauren.csv", download: true});
  
 }
 
