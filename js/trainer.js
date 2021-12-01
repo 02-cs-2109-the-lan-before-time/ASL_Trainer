@@ -16,13 +16,19 @@ async function load_process_data() {
 		return outputArr;
 	} //[1,00000] [01000]
 
-	for (let i = 0; i < letters.length; i++) {
-		AD_df = await AD_df.replace(letters[i], convertCat(letters[i]), {
-			columns: ['63'],
-		});
-	}
-}
+	// for (let i = 0; i < letters.length; i++) {
+	// 	AD_df = await AD_df.replace(letters[i], convertCat(letters[i]), {
+	// 		columns: ['63'],
+	// 	});
+	// }
 
+	function replace(letters) {
+		//find the letter and replace with converCat output
+		return AD_df.replace(letters, convertCat(letters));
+	}
+	let df_new = AD_df.apply(replace, {axis: 1});
+	df_new.print();
+}
 /*
 	//tensors
 	let aTensor = df_rep_a.tensor;
