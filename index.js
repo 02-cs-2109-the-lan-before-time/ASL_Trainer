@@ -13,7 +13,8 @@ let data = [
     c: "9",
   },
 ];
-function writeToCSVFile(data) {
+
+ function writeToCSVFile(data) {
   const filename = "output.csv";
   fs.writeFile(filename, extractAsCSV(data), (err) => {
     if (err) {
@@ -24,14 +25,9 @@ function writeToCSVFile(data) {
   });
 }
 
-function extractAsCSV(data) {
+ function extractAsCSV(data) {
   const header = ["Username, Password, Roles"];
   const rows = data.map((d) => `${d.a}, ${d.b}, ${d.c}`);
   return header.concat(rows).join("\n");
 }
 
-writeToCSVFile(data);
-
-module.exports = {
-    
-}
