@@ -7,18 +7,6 @@ const DataClass = new CaptureData([], {});
 let stopVidTimeOut;
 let currentClass;
 
-function readCSV(){
-  dfd.read_csv("https://docs.google.com/spreadsheets/d/1gin4dcSz19xPoramnCEBhQaP3DWUgmV4THgLL8Z5PDg/export?format=csv&gid=687630647")
-  .then(df => {
-      //do something like display descriptive statistics
-      df.print()
-      
-  }).catch(err => {
-      console.log(err);
-  })
-}
-
-readCSV()
 
 
 
