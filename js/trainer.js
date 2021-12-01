@@ -1,33 +1,38 @@
-
 async function load_process_data() {
-    let df2 = await dfd.read_csv("https://docs.google.com/spreadsheets/d/1DD7bs2mwGo0LVkT0WYbUiPb81rYx80VaHfWk2VgqK7I/export?format=csv&gid=915166490")
-    // df2.print()
+	let AD_df = await dfd.read_csv(
+		'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=0'
+	);
 
-    let AD_df = await dfd.read_csv("https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=0")
-       AD_df.print()
+	const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
-    // let names = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,34,35,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,,cat]
-    let group_df = df2.groupby(["cat"])
+	function convertCat(label) {
+		const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
+		const zeroes = new Array(letters.length).fill(0);
+		const indexNum = letters.indexOf(label);
+		const outputArr = [...zeroes];
 
-    //dataFrames
-    let a_df = group_df.data_tensors.a
-    let b_df = group_df.data_tensors.b
-   
-   
+		outputArr[indexNum] = 1;
 
-    let df_rep_a = a_df.replace('a', '0', { columns: ["cat"] })
-    let df_rep_b = b_df.replace('b', '1', { columns: ["cat"] })
+		return outputArr;
+	} //[1,00000] [01000]
 
-    //tensors
-    let aTensor =df_rep_a.tensor
-    let bTensor = df_rep_b.tensor
-    console.log(aTensor.shape)
-    console.log( bTensor.shape)
+	for (let i = 0; i < letters.length; i++) {
+		AD_df = await AD_df.replace(letters[i], convertCat(letters[i]), {
+			columns: ['63'],
+		});
+	}
+}
 
-   let TrainingData = aTensor.concat(bTensor)
-   TrainingData.print()
-   console.log(TrainingData.shape)
+/*
+	//tensors
+	let aTensor = df_rep_a.tensor;
+	let bTensor = df_rep_b.tensor;
+	console.log(aTensor.shape);
+	console.log(bTensor.shape);
 
+	let TrainingData = aTensor.concat(bTensor);
+	TrainingData.print();
+	console.log(TrainingData.shape);
 }
 /*
 Data:
@@ -41,20 +46,33 @@ y_train [[100],[]]
 the model will return one of our three cat arrays
 */
 
-
-load_process_data()
-
+load_process_data();
+//Define model architechture
 async function buildModel() {
-    const model = tf.sequential();
-    model.add(tf.layers.lstm({units:64, returnSequences:true, activation:'relu', inputShape:[60,64]}))
-   //dense layer
-//    model.add(tf.layers.dense({units:64, })
-    model.summary()
-    model.compile({loss: 'categoricalCrossentropy', optimizer: 'Adam', metrics:['categoricalAccuracy']});
-    
-    // await model.fit(xs, ys, {epochs: 1000});
+	const model = tf.sequential();
+	// model.add(
+	// 	// tf.layers.lstm({
+	// 	// 	units: 64,
+	// 	// 	returnSequences: true,
+	// 	// 	activation: 'relu',
+	// 	// 	inputShape: [60, 64],
+	// 	// })
+	// );
+	//single input layer
+	model.add(tf.layers.dense({inputShape: [1], units: 1, useBias: true}));
+	//single output layer
+	model.add(tf.layers.dense({units: 1, useBias: true}));
 
+	//dense layer
+	//    model.add(tf.layers.dense({units:64, })
+	model.summary();
+	model.compile({
+		loss: 'categoricalCrossentropy',
+		optimizer: 'Adam',
+		metrics: ['categoricalAccuracy'],
+	});
+
+	// await model.fit(xs, ys, {epochs: 1000});
 }
 
-buildModel()
- 
+buildModel();
