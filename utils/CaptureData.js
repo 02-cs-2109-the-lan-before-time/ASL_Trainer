@@ -26,7 +26,14 @@ class CaptureData {
           },
           []
         )
+     
         this.dataSet.push([...res, classification] )
+
+      //   for(let i = 0; i < frame.length; i ++){
+      //     this.dataSet.push([frame[i].x, frame[i].y, frame[i].z,])
+      //     }
+          
+          
       }
 
 }

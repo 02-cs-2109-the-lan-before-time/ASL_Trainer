@@ -1,10 +1,26 @@
+
 const body = document.body;
 const videoRef = document.querySelector("video");
 let startButton = document.getElementById("train_button");
 startButton.addEventListener("click", start);
 const DataClass = new CaptureData([], {});
 let stopVidTimeOut;
-let curretClass;
+let currentClass;
+
+function readCSV(){
+  dfd.read_csv("https://docs.google.com/spreadsheets/d/1gin4dcSz19xPoramnCEBhQaP3DWUgmV4THgLL8Z5PDg/export?format=csv&gid=687630647")
+  .then(df => {
+      //do something like display descriptive statistics
+      df.print()
+      
+  }).catch(err => {
+      console.log(err);
+  })
+}
+
+readCSV()
+
+
 
 
 const hands = new Hands({
@@ -32,7 +48,7 @@ function createLabelButtons(labels) {
   for (let key in labels) {
     let captureButton = document.createElement("button");
     captureButton.innerHTML = `Train Label ${key}`;
-    captureButton.setAttribute("id", labels[key]);
+    captureButton.setAttribute("id", key);
     captureButton.classList.add("training_buttons");
     captureButton.onclick = function (e) {
      setClass(this.id);
@@ -46,10 +62,17 @@ function createLabelButtons(labels) {
   body.append(stopButton)
 }
 
-function stopCollection(){
+ function stopCollection(){
     console.log("stopped")
     console.log("Length of DataSet:",DataClass.dataSet.length)
     console.log(DataClass.dataSet)
+    console.log("labels", DataClass.labels)
+    let df = new dfd.DataFrame(DataClass.dataSet)
+    //check indexs and colums
+    df.print()
+    // tf.tensor(DataClass.dataSet).print()
+    dfd.to_csv(df, { fileName: "testOut.csv", download: true});
+ 
 }
 
 async function getMedia(video) {
@@ -73,8 +96,10 @@ async function getMedia(video) {
 function onResults(results) {
     let landMarks = results.multiHandLandmarks
     if (landMarks.length > 0 ) {
-            DataClass.addFramesToData(landMarks[0], curretClass);
+            DataClass.addFramesToData(landMarks[0], currentClass);
             console.log(landMarks[0])
+
+           
       }
     //   console.log(DataClass.dataSet)
 }
@@ -105,7 +130,7 @@ function stopStreamedVideo(videoElem) {
 }
 
 function setClass(buttonId){
-    curretClass = buttonId
+    currentClass = buttonId
 }
 
 function collectData() {  
