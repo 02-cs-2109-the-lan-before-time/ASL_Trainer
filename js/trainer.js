@@ -138,11 +138,10 @@ async function trainModel(model, inputs, labels) {
 		metrics: ['mse'],
 	});
 
-	//batchSize is the size of the data subsets the model will see on each iteration of training
+	//batchSize is the size of the data subsets the model will see on each iteration of training 32 by default
 	const batchSize = 32;
 	//epochs is the number of times the model will look at the entire dataset
 	const epochs = 50;
-
 	//start the train loop
 	return await model.fit(inputs, labels, {
 		batchSize,
@@ -166,6 +165,52 @@ async function run() {
 	//train model
 	await trainModel(model, inputs, labels);
 	console.log('Done Training');
+	//prediction
+	testModel(model, data, tensorData);
+	console.log('prediction');
 }
 
 run();
+
+function testModel(model, inputData, normalizationData) {
+	const {inputMax, inputMin, labelMin, labelMax} = normalizationData;
+
+	// Generate predictions for a uniform range of numbers between 0 and 1;
+	// We un-normalize the data by doing the inverse of the min-max scaling
+	// that we did earlier.
+	const [xs, preds] = tf.tidy(() => {
+		// tf.linespace = we generate 100 new "examples" to feed to the model
+		const xs = tfds.load(inputData, (split = 'train[:75%]'));
+		const preds = model.predict(test);
+		console.log('test:', xs);
+		console.log('preds', preds);
+		const unNormXs = xs.mul(inputMax.sub(inputMin)).add(inputMin);
+
+		const unNormPreds = preds.mul(labelMax.sub(labelMin)).add(labelMin);
+
+		// Un-normalize the data
+		return [unNormXs.dataSync(), unNormPreds.dataSync()];
+	});
+
+	const predictedPoints = Array.from(xs).map((val, i) => {
+		return {x: val, y: preds[i]};
+	});
+
+	const originalPoints = {
+		x: inputData.iloc({columns: ['0:63']}),
+		y: inputData.iloc({columns: [63]}),
+	};
+
+	tfvis.render.scatterplot(
+		{name: 'Model Predictions vs Original Data'},
+		{
+			values: [originalPoints, predictedPoints],
+			series: ['original', 'predicted'],
+		},
+		{
+			xLabel: 'hand cordinates',
+			yLabel: 'alphabelt',
+			height: 300,
+		}
+	);
+}
