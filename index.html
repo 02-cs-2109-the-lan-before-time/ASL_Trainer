@@ -5,23 +5,37 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+
+    <title>ASL Trainer</title>
+
+    <!-- import tensorflow -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"> </script>
+    <!-- mediapipe camera utilities -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <!-- mediapipe control utilities -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <!-- mediapipe drawing utilities  -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <!-- mediapipe hands  -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <!-- capture utility  -->
   <script src="utils/CaptureData.js"></script>
-    <script src="js/index.js" defer></script>
-    <script src="js/trainer.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/danfojs@0.3.3/lib/bundle.min.js"></script>
-    
+
+  <!-- danfo  -->
+  <script src="https://cdn.jsdelivr.net/npm/danfojs@0.3.3/lib/bundle.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.0.2/dist/tfjs-vis.umd.min.js"></script>
+
+  <!-- index and trainer js files  -->
+  <script src="js/index.js" defer></script>
+  <script src="js/trainer.js" defer></script>
+
 </head>
 <body>
-    
+
     <h1>ASL Training App</h1>
     <button id="train_button" >Start Training</button>
     <video id='web_cam'></video>
-   
+
 </body>
 </html>
