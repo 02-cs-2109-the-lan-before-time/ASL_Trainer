@@ -1,57 +1,16 @@
 
-// load and format data
+//////// LOAD DATA /////////
 async function load_process_data() {
 	let AD_df = await dfd.read_csv(
 		'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=0'
 	);
 
-	//array of letters a-z
-	const letters = 'abcd'.split('');
-
-	// //converts label to a one hot tensor
-	// function convertCat(label) {
-	// 	const zeroes = new Array(letters.length).fill(0);
-	// 	const indexNum = letters.indexOf(label);
-	// 	const outputArr = [...zeroes];
-
-	// 	outputArr[indexNum] = 1;
-
-	// 	return outputArr;
-	// }
-
-	// for (let i = 0; i < letters.length; i++) {
-	// 	AD_df = await AD_df.replace(letters[i], convertCat(letters[i]), {
-	// 		columns: ['63'],
-	// 	});
-	// }
-	console.log(AD_df)
-	return AD_df;
+	//shuffle data so model isn't learning things that are dependent on the order data is being fed in, and model isn't sensitive to the structure of subgroups
+	return await AD_df.sample(AD_df.values.length);
 }
 
-/*
-	//tensors
-	let aTensor = df_rep_a.tensor;
-	let bTensor = df_rep_b.tensor;
-	console.log(aTensor.shape);
-	console.log(bTensor.shape);
 
-	let TrainingData = aTensor.concat(bTensor);
-	TrainingData.print();
-	console.log(TrainingData.shape);
-}
-/*
-Data:
-1. split into data and test
-
-x_train: 63 points (not categories)
-Array.len(63)
-Labels: a,b,c
-y_train [[100],[]]
-
-the model will return one of our three cat arrays
-*/
-
-//Define model architechture
+//////// BUILD MODEL ///////
 function buildModel() {
 	const model = tf.sequential();
 
@@ -59,48 +18,50 @@ function buildModel() {
 	model.add(tf.layers.dense({inputShape: [63], units: 64, activation: 'relu', useBias: true}));
 	//layer
 	model.add(tf.layers.dense({units: 64, activation: 'relu'}))
-	//single output layer with [number of labels] of units
-	//softmax normalizes output to give probabilities
+	//single output layer with [number of labels] of units. softmax normalizes output to give probabilities
 	model.add(tf.layers.dense({units: 4, activation: 'softmax', useBias: true}));
 
 	return model;
 }
 
-
-//convert input data to tensors
+const labels = ['a', 'b','c','d'];
+//////// PREPARE DATA //////////
 function convertToTensor(data) {
 	//tidy disposes of any intermediate tensors
 	return tf.tidy(()=> {
-		//shuffle data so model isn't learning things that are dependent on the order data is being fed in, and model isn't sensitive to the structure of subgroups
-		tf.util.shuffle(data);
-
-		//split data into training and test sets
+		//////split data(type: dataframe) into training and test sets
 		const num_training_rows = Math.round(data.values.length * 0.8);
-		console.log('ASDFSDFSD', num_training_rows)
 		//80% of data rows is training data
 		const training_data = data.iloc({rows: [`0:${num_training_rows}`]})
 		//20% of data rows is test data
 		const test_data = data.iloc({rows: [`${num_training_rows}:`]})
 
-		//convert data to tensor: input tensor for coordinates, labels tensor for labels (a,b,...z...1,2,..10)
-		//split data so the 63 coordinates are in an inputs array and the 64th column (labels) are in the labels array
+		//DEFINING INPUT DATA
+		//taking only the coordinates from our data (first 63 columns) and leaving out the labels (last column)
 		//inputs shape: num_of_datapoints x 63
 		const training_inputs = training_data.iloc({columns: ["0:63"]});
 		const test_inputs = test_data.iloc({columns: ["0:63"]});
 
+		//(logging stuff for debugging)
+		// test_data.describe().print()
+		// console.log('testdata')
+		// test_data[63].unique().print()
+		// console.log('trainingdata')
+		// training_data.print()
+
 		//converts 'a, b, ..' to a one hot tensor [1, 0, 0, 0]
 		let encode = new dfd.OneHotEncoder()
 		//runs encoder on the last column (labels)
-    encode.fit(data[63].values)
 
-		//converts letters in the last column into one hot arrays
+		encode.fit(labels);
+    //encode.fit(data[63].values)
+		console.log('Encode: ', encode.values)
+
+		//DEFINING LABELS DATA
+		//also converts letters in the last column into one hot arrays
 		let training_labels = encode.transform(training_data[63].values)
 		let test_labels = encode.transform(test_data[63].values)
 
-
-		//inputs.length is the number of examples, 63 is the number of features per examples
-		// const inputTensor = training_inputs.tensor;
-		// const labelTensor = training_labels.tensor;
 
 		// //normalize data using min-max scaling to the range 0-1 (best practice)
 		// const inputMax = inputTensor.max();
@@ -111,7 +72,7 @@ function convertToTensor(data) {
 		// const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));
 		// const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
 
-		//return the data and normalization bounds
+		//return the data as tensors
 		return {
 			training_inputs: training_inputs.tensor,
 			training_labels: training_labels.tensor,
@@ -126,7 +87,7 @@ function convertToTensor(data) {
 	});
 }
 
-//train model
+////// TRAINING THE MODEL ///////
 async function trainModel(model, inputs, labels) {
 	//prepare model for training
 	model.compile({
@@ -140,7 +101,7 @@ async function trainModel(model, inputs, labels) {
 	//batchSize is the size of the data subsets the model will see on each iteration of training
 	const batchSize = 32;
 	//epochs is the number of times the model will look at the entire dataset
-	const epochs = 1;
+	const epochs = 50;
 
 	//start the train loop
 	return await model.fit(inputs, labels, {
@@ -154,35 +115,78 @@ async function trainModel(model, inputs, labels) {
 	});
 }
 
+//// CONVERT ONE HOT PREDICTION TO LABELS ///
+function translate_predictions(raw_predictions) {
+	const translated = raw_predictions.map((pred) => {
+		let letter = ''
+		let pred_str = JSON.stringify(pred).slice(1,8)
+		if (pred_str === '1,0,0,0') {
+			letter = 'a'
+		} else if (pred_str === '0,1,0,0') {
+			letter = 'b'
+		} else if (pred_str === '0,0,1,0') {
+			letter = 'c'
+		} else if (pred_str === '0,0,0,1') {
+			letter = 'd'
+		}
+		return letter
+	});
+
+	return translated;
+}
+
+///// RUNNING EVERYTHING //////
 async function run() {
-	//gets data
+	//gets shuffled data (type: dataframe)
 	const data = await load_process_data();
 	//get model
 	const model = buildModel();
-	//converts data to tensors for training
+	//get prepared data
 	const tensorData = convertToTensor(data);
 	const {training_inputs, training_labels, test_inputs, test_labels} = tensorData;
 	console.log(training_inputs.shape)
 	console.log(training_labels.shape)
 	console.log(test_inputs.shape)
 	console.log(test_labels.shape)
-	//train model
+	//train model on training data (type: tensors)
 	await trainModel(model, training_inputs, training_labels);
 	console.log('Done Training');
 
-	//prediction
-	//run prediction on test data. predict returns a tensor.
+	///// PREDICT /////
+	//run prediction on test data. predict takes in and returns a tensor.
 	const results = model.predict(test_inputs)
+	console.log('prediction tensors (probabilities): ')
 	results.print();
 	//convert results tensor to an array
 	//prediction array shape: number_of_test_inputs x 4
 	const prediction = await results.array();
-	console.log(prediction)
+	console.log('prediction array of probabilities: ' , prediction)
 
-	//TO DO
+
 	////Map through prediction array to convert those arrays into labels
-	////Compare that (predictions) with test_labels and see how good/bad our model is
+	const one_hot_prediction = prediction.map((p_array) => {
+		const idx_of_highest = p_array.indexOf(Math.max(...p_array));
+		const one_hot_p = [0, 0, 0, 0];
+		one_hot_p[idx_of_highest] = 1;
+		return one_hot_p;
+	});
+	console.log('prediction array as one hot arrays: ', one_hot_prediction);
 
+	//translate prediction into labels
+	const translated = translate_predictions(one_hot_prediction)
+	console.log('translated predictions: ', translated)
+
+	//compare one_hot_prediction with test_labels
+	const test_actual = await test_labels.array()
+	let match_count = 0;
+	for (let i = 0; i < one_hot_prediction.length; i++) {
+		if (JSON.stringify(one_hot_prediction[i]) === JSON.stringify(test_actual[i])) {
+			match_count++;
+		}
+	}
+
+	//show how well our model does
+	console.log(`${match_count}/${test_actual.length} correctly predicted`)
 }
 
 run();
