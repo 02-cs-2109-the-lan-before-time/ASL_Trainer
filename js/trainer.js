@@ -1,56 +1,15 @@
-// load and format data
+//////// LOAD DATA /////////
 async function load_process_data() {
 	let AD_df = await dfd.read_csv(
 		'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=0'
 	);
 
-	//array of letters a-z
-	const letters = 'abcd'.split('');
+	//shuffle data so model isn't learning things that are dependent on the order data is being fed in, and model isn't sensitive to the structure of subgroups
+	return await AD_df.sample(AD_df.values.length);
 
-	//converts label to a one hot tensor
-	function convertCat(label) {
-		const zeroes = new Array(letters.length).fill(0);
-		const indexNum = letters.indexOf(label);
-		const outputArr = [...zeroes];
-
-		outputArr[indexNum] = 1;
-
-		return outputArr;
-	}
-
-	// for (let i = 0; i < letters.length; i++) {
-	// 	AD_df = await AD_df.replace(letters[i], convertCat(letters[i]), {
-	// 		columns: ['63'],
-	// 	});
-	// }
-	console.log(AD_df);
-	return AD_df;
 }
 
-/*
-	//tensors
-	let aTensor = df_rep_a.tensor;
-	let bTensor = df_rep_b.tensor;
-	console.log(aTensor.shape);
-	console.log(bTensor.shape);
-
-	let TrainingData = aTensor.concat(bTensor);
-	TrainingData.print();
-	console.log(TrainingData.shape);
-}
-/*
-Data:
-1. split into data and test
-
-x_train: 63 points (not categories)
-Array.len(63)
-Labels: a,b,c
-y_train [[100],[]]
-
-the model will return one of our three cat arrays
-*/
-
-//Define model architechture
+//////// BUILD MODEL ///////
 function buildModel() {
 	const model = tf.sequential();
 
@@ -64,70 +23,80 @@ function buildModel() {
 		})
 	);
 	//layer
-	model.add(tf.layers.dense({units: 64, activation: 'relu'}));
-	//single output layer with [number of labels] of units
-	//softmax normalizes output to give probabilities
+	model.add(tf.layers.dense({units: 64, activation: 'relu'}))
+	//single output layer with [number of labels] of units. softmax normalizes output to give probabilities
 	model.add(tf.layers.dense({units: 4, activation: 'softmax', useBias: true}));
 
 	return model;
 }
 
-//convert input data to tensors
+
+const labels = ['a', 'b','c','d'];
+//////// PREPARE DATA //////////
 function convertToTensor(data) {
 	//tidy disposes of any intermediate tensors
-	return tf.tidy(() => {
-		//shuffle data so model isn't learning things that are dependent on the order data is being fed in, and model isn't sensitive to the structure of subgroups
-		tf.util.shuffle(data);
+	return tf.tidy(()=> {
+		//////split data(type: dataframe) into training and test sets
+		const num_training_rows = Math.round(data.values.length * 0.8);
+		//80% of data rows is training data
+		const training_data = data.iloc({rows: [`0:${num_training_rows}`]})
+		//20% of data rows is test data
+		const test_data = data.iloc({rows: [`${num_training_rows}:`]})
 
-		//convert data to tensor: input tensor for coordinates, labels tensor for labels (a,b,...z...1,2,..10)
-
-		//split data so the 63 coordinates are in an inputs array and the 64th column (labels) are in the labels array
+		//DEFINING INPUT DATA
+		//taking only the coordinates from our data (first 63 columns) and leaving out the labels (last column)
 		//inputs shape: num_of_datapoints x 63
-		//const inputs = data.map(d => d.slice(0,63));
+		const training_inputs = training_data.iloc({columns: ["0:63"]});
+		const test_inputs = test_data.iloc({columns: ["0:63"]});
 
-		const inputs = data.iloc({columns: ['0:63']});
-		//labels shape: num_of_datapoints x lenth_of_one_hot
-		//const labels = data.map(d => d[63]);
-		const oldlabels = data.iloc({columns: [63]});
-		//const labels = new oldlabels.OneHotEncoder();
-		let encode = new dfd.OneHotEncoder();
-		encode.fit(data[63]);
-		console.log(encode);
-		console.log(inputs.shape, 'HGFHGFHGFGHFHFH');
-		let labels = encode.transform(data[63].values);
-		labels.print();
+		//(logging stuff for debugging)
+		// test_data.describe().print()
+		// console.log('testdata')
+		// test_data[63].unique().print()
+		// console.log('trainingdata')
+		// training_data.print()
 
-		//inputs.length is the number of examples, 63 is the number of features per examples
-		const inputTensor = inputs.tensor;
-		const labelTensor = labels.tensor;
 
-		//normalize data using min-max scaling to the range 0-1 (best practice)
-		const inputMax = inputTensor.max();
-		const inputMin = inputTensor.min();
-		const labelMax = labelTensor.max();
-		const labelMin = labelTensor.min();
+		//converts 'a, b, ..' to a one hot tensor [1, 0, 0, 0]
+		let encode = new dfd.OneHotEncoder()
+		//runs encoder on the last column (labels)
 
-		const normalizedInputs = inputTensor
-			.sub(inputMin)
-			.div(inputMax.sub(inputMin));
-		const normalizedLabels = labelTensor
-			.sub(labelMin)
-			.div(labelMax.sub(labelMin));
+		encode.fit(labels);
+    //encode.fit(data[63].values)
+		console.log('Encode: ', encode.values)
 
-		//return the data and normalization bounds
+		//DEFINING LABELS DATA
+		//also converts letters in the last column into one hot arrays
+		let training_labels = encode.transform(training_data[63].values)
+		let test_labels = encode.transform(test_data[63].values)
+
+
+		// //normalize data using min-max scaling to the range 0-1 (best practice)
+		// const inputMax = inputTensor.max();
+		// const inputMin = inputTensor.min();
+		// const labelMax = labelTensor.max();
+		// const labelMin = labelTensor.min();
+
+		// const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));
+		// const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
+
+		//return the data as tensors
+
 		return {
-			inputs: normalizedInputs,
-			labels: normalizedLabels,
+			training_inputs: training_inputs.tensor,
+			training_labels: training_labels.tensor,
+			test_inputs: test_inputs.tensor,
+			test_labels: test_labels.tensor
 			//return min/max bounds for later use
-			inputMax,
-			inputMin,
-			labelMax,
-			labelMin,
-		};
+			// inputMax,
+			// inputMin,
+			// labelMax,
+			// labelMin
+		}
 	});
 }
 
-//train model
+////// TRAINING THE MODEL ///////
 async function trainModel(model, inputs, labels) {
 	//prepare model for training
 	model.compile({
@@ -154,63 +123,79 @@ async function trainModel(model, inputs, labels) {
 	});
 }
 
+//// CONVERT ONE HOT PREDICTION TO LABELS ///
+function translate_predictions(raw_predictions) {
+	const translated = raw_predictions.map((pred) => {
+		let letter = ''
+		let pred_str = JSON.stringify(pred).slice(1,8)
+		if (pred_str === '1,0,0,0') {
+			letter = 'a'
+		} else if (pred_str === '0,1,0,0') {
+			letter = 'b'
+		} else if (pred_str === '0,0,1,0') {
+			letter = 'c'
+		} else if (pred_str === '0,0,0,1') {
+			letter = 'd'
+		}
+		return letter
+	});
+
+	return translated;
+}
+
+///// RUNNING EVERYTHING //////
 async function run() {
-	//gets data
+	//gets shuffled data (type: dataframe)
 	const data = await load_process_data();
 	//get model
 	const model = buildModel();
-	//converts data for tensors for training
+	//get prepared data
 	const tensorData = convertToTensor(data);
-	const {inputs, labels} = tensorData;
-	//train model
-	await trainModel(model, inputs, labels);
+	const {training_inputs, training_labels, test_inputs, test_labels} = tensorData;
+	console.log(training_inputs.shape)
+	console.log(training_labels.shape)
+	console.log(test_inputs.shape)
+	console.log(test_labels.shape)
+	//train model on training data (type: tensors)
+	await trainModel(model, training_inputs, training_labels);
 	console.log('Done Training');
-	//prediction
-	testModel(model, data, tensorData);
-	console.log('prediction');
+
+
+	///// PREDICT /////
+	//run prediction on test data. predict takes in and returns a tensor.
+	const results = model.predict(test_inputs)
+	console.log('prediction tensors (probabilities): ')
+	results.print();
+	//convert results tensor to an array
+	//prediction array shape: number_of_test_inputs x 4
+	const prediction = await results.array();
+	console.log('prediction array of probabilities: ' , prediction)
+
+
+	////Map through prediction array to convert those arrays into labels
+	const one_hot_prediction = prediction.map((p_array) => {
+		const idx_of_highest = p_array.indexOf(Math.max(...p_array));
+		const one_hot_p = [0, 0, 0, 0];
+		one_hot_p[idx_of_highest] = 1;
+		return one_hot_p;
+	});
+	console.log('prediction array as one hot arrays: ', one_hot_prediction);
+
+	//translate prediction into labels
+	const translated = translate_predictions(one_hot_prediction)
+	console.log('translated predictions: ', translated)
+
+	//compare one_hot_prediction with test_labels
+	const test_actual = await test_labels.array()
+	let match_count = 0;
+	for (let i = 0; i < one_hot_prediction.length; i++) {
+		if (JSON.stringify(one_hot_prediction[i]) === JSON.stringify(test_actual[i])) {
+			match_count++;
+		}
+	}
+
+	//show how well our model does
+	console.log(`${match_count}/${test_actual.length} correctly predicted`)
 }
 
 run();
-
-function testModel(model, inputData, normalizationData) {
-	const {inputMax, inputMin, labelMin, labelMax} = normalizationData;
-
-	// Generate predictions for a uniform range of numbers between 0 and 1;
-	// We un-normalize the data by doing the inverse of the min-max scaling
-	// that we did earlier.
-	const [xs, preds] = tf.tidy(() => {
-		// tf.linespace = we generate 100 new "examples" to feed to the model
-		const xs = tfds.load(inputData, (split = 'train[:75%]'));
-		const preds = model.predict(test);
-		console.log('test:', xs);
-		console.log('preds', preds);
-		const unNormXs = xs.mul(inputMax.sub(inputMin)).add(inputMin);
-
-		const unNormPreds = preds.mul(labelMax.sub(labelMin)).add(labelMin);
-
-		// Un-normalize the data
-		return [unNormXs.dataSync(), unNormPreds.dataSync()];
-	});
-
-	const predictedPoints = Array.from(xs).map((val, i) => {
-		return {x: val, y: preds[i]};
-	});
-
-	const originalPoints = {
-		x: inputData.iloc({columns: ['0:63']}),
-		y: inputData.iloc({columns: [63]}),
-	};
-
-	tfvis.render.scatterplot(
-		{name: 'Model Predictions vs Original Data'},
-		{
-			values: [originalPoints, predictedPoints],
-			series: ['original', 'predicted'],
-		},
-		{
-			xLabel: 'hand cordinates',
-			yLabel: 'alphabelt',
-			height: 300,
-		}
-	);
-}

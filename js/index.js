@@ -56,7 +56,7 @@ function createLabelButtons(labels) {
     let df = new dfd.DataFrame(DataClass.dataSet)
     df.print()
     dfd.to_csv(df, { fileName: "A_D_Lauren.csv", download: true});
- 
+
 }
 
 async function getMedia(video) {
@@ -83,7 +83,7 @@ function onResults(results) {
             DataClass.addFramesToData(landMarks[0], currentClass);
             console.log(landMarks[0])
 
-           
+
       }
     //   console.log(DataClass.dataSet)
 }
@@ -117,8 +117,11 @@ function setClass(buttonId){
     currentClass = buttonId
 }
 
-function collectData() {  
-  hands.onResults(onResults);
+function collectData() {
+  setInterval(() => {
+    hands.onResults(onResults);
+  }, 500);
+
 }
 
 runCamera();
