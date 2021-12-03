@@ -8,16 +8,16 @@ async function load_process_data() {
 	//array of letters a-z
 	const letters = 'abcd'.split('');
 
-	//converts label to a one hot tensor
-	function convertCat(label) {
-		const zeroes = new Array(letters.length).fill(0);
-		const indexNum = letters.indexOf(label);
-		const outputArr = [...zeroes];
+	// //converts label to a one hot tensor
+	// function convertCat(label) {
+	// 	const zeroes = new Array(letters.length).fill(0);
+	// 	const indexNum = letters.indexOf(label);
+	// 	const outputArr = [...zeroes];
 
-		outputArr[indexNum] = 1;
+	// 	outputArr[indexNum] = 1;
 
-		return outputArr;
-	}
+	// 	return outputArr;
+	// }
 
 	// for (let i = 0; i < letters.length; i++) {
 	// 	AD_df = await AD_df.replace(letters[i], convertCat(letters[i]), {
@@ -27,8 +27,6 @@ async function load_process_data() {
 	console.log(AD_df)
 	return AD_df;
 }
-
-
 
 /*
 	//tensors
@@ -53,7 +51,6 @@ y_train [[100],[]]
 the model will return one of our three cat arrays
 */
 
-
 //Define model architechture
 function buildModel() {
 	const model = tf.sequential();
@@ -77,46 +74,54 @@ function convertToTensor(data) {
 		//shuffle data so model isn't learning things that are dependent on the order data is being fed in, and model isn't sensitive to the structure of subgroups
 		tf.util.shuffle(data);
 
-		//convert data to tensor: input tensor for coordinates, labels tensor for labels (a,b,...z...1,2,..10)
+		//split data into training and test sets
+		const num_training_rows = Math.round(data.values.length * 0.8);
+		console.log('ASDFSDFSD', num_training_rows)
+		//80% of data rows is training data
+		const training_data = data.iloc({rows: [`0:${num_training_rows}`]})
+		//20% of data rows is test data
+		const test_data = data.iloc({rows: [`${num_training_rows}:`]})
 
+		//convert data to tensor: input tensor for coordinates, labels tensor for labels (a,b,...z...1,2,..10)
 		//split data so the 63 coordinates are in an inputs array and the 64th column (labels) are in the labels array
 		//inputs shape: num_of_datapoints x 63
-		//const inputs = data.map(d => d.slice(0,63));
+		const training_inputs = training_data.iloc({columns: ["0:63"]});
+		const test_inputs = test_data.iloc({columns: ["0:63"]});
 
-		const inputs = data.iloc({columns: ["0:63"]});
-		//labels shape: num_of_datapoints x lenth_of_one_hot
-		//const labels = data.map(d => d[63]);
-		const oldlabels = data.iloc({columns: [63]});
-		//const labels = new oldlabels.OneHotEncoder();
+		//converts 'a, b, ..' to a one hot tensor [1, 0, 0, 0]
 		let encode = new dfd.OneHotEncoder()
-    encode.fit(data[63])
-    console.log(encode);
-		console.log(inputs.shape, 'HGFHGFHGFGHFHFH')
-		let labels = encode.transform(data[63].values)
-		labels.print()
+		//runs encoder on the last column (labels)
+    encode.fit(data[63].values)
+
+		//converts letters in the last column into one hot arrays
+		let training_labels = encode.transform(training_data[63].values)
+		let test_labels = encode.transform(test_data[63].values)
+
 
 		//inputs.length is the number of examples, 63 is the number of features per examples
-		const inputTensor = inputs.tensor;
-		const labelTensor = labels.tensor;
+		// const inputTensor = training_inputs.tensor;
+		// const labelTensor = training_labels.tensor;
 
-		//normalize data using min-max scaling to the range 0-1 (best practice)
-		const inputMax = inputTensor.max();
-		const inputMin = inputTensor.min();
-		const labelMax = labelTensor.max();
-		const labelMin = labelTensor.min();
+		// //normalize data using min-max scaling to the range 0-1 (best practice)
+		// const inputMax = inputTensor.max();
+		// const inputMin = inputTensor.min();
+		// const labelMax = labelTensor.max();
+		// const labelMin = labelTensor.min();
 
-		const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));
-		const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
+		// const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));
+		// const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
 
 		//return the data and normalization bounds
 		return {
-			inputs: normalizedInputs,
-			labels: normalizedLabels,
+			training_inputs: training_inputs.tensor,
+			training_labels: training_labels.tensor,
+			test_inputs: test_inputs.tensor,
+			test_labels: test_labels.tensor
 			//return min/max bounds for later use
-			inputMax,
-			inputMin,
-			labelMax,
-			labelMin
+			// inputMax,
+			// inputMin,
+			// labelMax,
+			// labelMin
 		}
 	});
 }
@@ -135,7 +140,7 @@ async function trainModel(model, inputs, labels) {
 	//batchSize is the size of the data subsets the model will see on each iteration of training
 	const batchSize = 32;
 	//epochs is the number of times the model will look at the entire dataset
-	const epochs = 50;
+	const epochs = 1;
 
 	//start the train loop
 	return await model.fit(inputs, labels, {
@@ -154,12 +159,30 @@ async function run() {
 	const data = await load_process_data();
 	//get model
 	const model = buildModel();
-	//converts data for tensors for training
+	//converts data to tensors for training
 	const tensorData = convertToTensor(data);
-	const {inputs, labels} = tensorData;
+	const {training_inputs, training_labels, test_inputs, test_labels} = tensorData;
+	console.log(training_inputs.shape)
+	console.log(training_labels.shape)
+	console.log(test_inputs.shape)
+	console.log(test_labels.shape)
 	//train model
-	await trainModel(model, inputs, labels);
+	await trainModel(model, training_inputs, training_labels);
 	console.log('Done Training');
+
+	//prediction
+	//run prediction on test data. predict returns a tensor.
+	const results = model.predict(test_inputs)
+	results.print();
+	//convert results tensor to an array
+	//prediction array shape: number_of_test_inputs x 4
+	const prediction = await results.array();
+	console.log(prediction)
+
+	//TO DO
+	////Map through prediction array to convert those arrays into labels
+	////Compare that (predictions) with test_labels and see how good/bad our model is
+
 }
 
 run();
