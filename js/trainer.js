@@ -152,6 +152,9 @@ async function run() {
 	await trainModel(model, training_inputs, training_labels);
 	console.log('Done Training');
 
+	////////!!!!!!!!!!!!!!!!!!!!!!!!
+	await model.save('downloads://isign_model');
+
 	///// PREDICT /////
 	//run prediction on test data. predict takes in and returns a tensor.
 	const results = model.predict(test_inputs)
