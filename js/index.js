@@ -1,7 +1,7 @@
 
 const body = document.body;
 const videoRef = document.querySelector("video");
-let startButton = document.getElementById("train_button");
+let startButton = document.getElementById("get_data");
 startButton.addEventListener("click", start);
 const DataClass = new CaptureData([], {});
 let stopVidTimeOut;
@@ -119,7 +119,8 @@ function setClass(buttonId){
 
 function collectData() {  
   hands.onResults(onResults);
+  runCamera();
 }
 
-runCamera();
+
 

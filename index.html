@@ -20,7 +20,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <!-- capture utility  -->
   <script src="utils/CaptureData.js"></script>
-
+  <script src="js/predict.js" defer></script>
+  <script src="js/buildModel.js" defer></script>
   <!-- danfo  -->
   <script src="https://cdn.jsdelivr.net/npm/danfojs@0.3.3/lib/bundle.min.js"></script>
 
@@ -34,7 +35,8 @@
 <body>
 
     <h1>ASL Training App</h1>
-    <button id="train_button" >Start Training</button>
+    <button id="get_data" >Collect Data</button>
+    <button id="train_model" >Train Model</button>
     <video id='web_cam'></video>
 
 </body>
