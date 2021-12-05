@@ -2,6 +2,7 @@
 import SignEncoder from './encoder.js'
 const encoder = new SignEncoder();
 
+
 //////// LOAD DATA /////////
 async function load_process_data() {
 	let AD_df = await dfd.read_csv(
@@ -13,15 +14,22 @@ async function load_process_data() {
 
 	//shuffle data so model isn't learning things that are dependent on the order data is being fed in, and model isn't sensitive to the structure of subgroups
 	return await AD_df.sample(AD_df.values.length);
-}
 
+}
 
 //////// BUILD MODEL ///////
 function buildModel() {
 	const model = tf.sequential();
 
 	//single input layer with 64 weights for each of the 63 input features of the data
-	model.add(tf.layers.dense({inputShape: [63], units: 64, activation: 'relu', useBias: true}));
+	model.add(
+		tf.layers.dense({
+			inputShape: [63],
+			units: 64,
+			activation: 'relu',
+			useBias: true,
+		})
+	);
 	//layer
 	model.add(tf.layers.dense({units: 64, activation: 'relu'}))
 	//single output layer with [number of labels] of units. softmax normalizes output to give probabilities
@@ -29,7 +37,6 @@ function buildModel() {
 
 	return model;
 }
-
 
 
 //////// PREPARE DATA //////////
@@ -55,6 +62,7 @@ function convertToTensor(data) {
 		// test_data[63].unique().print()
 		// console.log('trainingdata')
 		// training_data.print()
+
 
 		//converts 'a, b, ..' to a one hot tensor [1, 0, 0, 0]
 		// let encode = new dfd.OneHotEncoder()
@@ -87,6 +95,7 @@ function convertToTensor(data) {
 		// const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
 
 		//return the data as tensors
+
 		return {
 			training_inputs: training_inputs.tensor,
 			training_labels: training_labels.tensor,
@@ -112,20 +121,19 @@ async function trainModel(model, inputs, labels) {
 		metrics: ['mse'],
 	});
 
-	//batchSize is the size of the data subsets the model will see on each iteration of training
+	//batchSize is the size of the data subsets the model will see on each iteration of training 32 by default
 	const batchSize = 32;
 	//epochs is the number of times the model will look at the entire dataset
 	const epochs = 50;
-
 	//start the train loop
 	return await model.fit(inputs, labels, {
 		batchSize,
 		epochs,
 		callbacks: tfvis.show.fitCallbacks(
-			{name: 'Training Performance' },
+			{name: 'Training Performance'},
 			['loss', 'mse'],
 			{height: 200, callbacks: ['onEpochEnd']}
-		)
+		),
 	});
 }
 
@@ -147,8 +155,10 @@ async function run() {
 	await trainModel(model, training_inputs, training_labels);
 	console.log('Done Training');
 
+
 	//////// SAVING TRAINED MODEL LOCALLY /////
 	await model.save('downloads://isign_model');
+
 
 	///// PREDICT /////
 	//run prediction on test data. predict takes in and returns a tensor.
@@ -184,4 +194,3 @@ async function run() {
 }
 
 run();
-
