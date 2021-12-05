@@ -1,7 +1,15 @@
+
+import SignEncoder from './encoder.js'
+const encoder = new SignEncoder();
+
+
 //////// LOAD DATA /////////
 async function load_process_data() {
 	let AD_df = await dfd.read_csv(
-		'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=0'
+		//'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=0'
+		//'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=1249968315'
+		//'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=15286569'
+		'https://docs.google.com/spreadsheets/d/1nBP6rdesizWW0hamkI11Dk1eB3uJz2G5wglAq6pT5To/export?format=csv&gid=954336765'
 	);
 
 	//shuffle data so model isn't learning things that are dependent on the order data is being fed in, and model isn't sensitive to the structure of subgroups
@@ -25,13 +33,12 @@ function buildModel() {
 	//layer
 	model.add(tf.layers.dense({units: 64, activation: 'relu'}))
 	//single output layer with [number of labels] of units. softmax normalizes output to give probabilities
-	model.add(tf.layers.dense({units: 4, activation: 'softmax', useBias: true}));
+	model.add(tf.layers.dense({units: 36, activation: 'softmax', useBias: true}));
 
 	return model;
 }
 
 
-const labels = ['a', 'b','c','d'];
 //////// PREPARE DATA //////////
 function convertToTensor(data) {
 	//tidy disposes of any intermediate tensors
@@ -58,18 +65,25 @@ function convertToTensor(data) {
 
 
 		//converts 'a, b, ..' to a one hot tensor [1, 0, 0, 0]
-		let encode = new dfd.OneHotEncoder()
-		//runs encoder on the last column (labels)
+		// let encode = new dfd.OneHotEncoder()
+		// //runs encoder on the last column (labels)
 
-		encode.fit(labels);
-    //encode.fit(data[63].values)
-		console.log('Encode: ', encode.values)
+		// encode.fit(labels);
+    // //encode.fit(data[63].values)
+		// console.log('Encode: ', encode.values)
+		//let training_labels = encode.transform(training_data[63].values)
+		//let test_labels = encode.transform(test_data[63].values)
 
 		//DEFINING LABELS DATA
-		//also converts letters in the last column into one hot arrays
-		let training_labels = encode.transform(training_data[63].values)
-		let test_labels = encode.transform(test_data[63].values)
+		//also converts letters in the last column into one hot arrays dataframe
+		let training_labels = new dfd.DataFrame(training_data[63].values.map(val => {
+			return encoder.encode_to_one_hot(val)
+		}));
+		let test_labels = new dfd.DataFrame(test_data[63].values.map(val => {
+			return encoder.encode_to_one_hot(val)
+		}));
 
+		console.log('training_labels!!!!!! ', training_labels);
 
 		// //normalize data using min-max scaling to the range 0-1 (best practice)
 		// const inputMax = inputTensor.max();
@@ -101,7 +115,7 @@ async function trainModel(model, inputs, labels) {
 	//prepare model for training
 	model.compile({
 		//adam optimizer is "effective in practice and requires no configuration"
-		optimizer: tf.train.adam(),
+		optimizer: tf.train.adam(0.005),
 		//meanSquareError compares the model's predictions with the actual values
 		loss: tf.losses.meanSquaredError,
 		metrics: ['mse'],
@@ -123,25 +137,6 @@ async function trainModel(model, inputs, labels) {
 	});
 }
 
-//// CONVERT ONE HOT PREDICTION TO LABELS ///
-function translate_predictions(raw_predictions) {
-	const translated = raw_predictions.map((pred) => {
-		let letter = ''
-		let pred_str = JSON.stringify(pred).slice(1,8)
-		if (pred_str === '1,0,0,0') {
-			letter = 'a'
-		} else if (pred_str === '0,1,0,0') {
-			letter = 'b'
-		} else if (pred_str === '0,0,1,0') {
-			letter = 'c'
-		} else if (pred_str === '0,0,0,1') {
-			letter = 'd'
-		}
-		return letter
-	});
-
-	return translated;
-}
 
 ///// RUNNING EVERYTHING //////
 async function run() {
@@ -161,6 +156,10 @@ async function run() {
 	console.log('Done Training');
 
 
+	//////// SAVING TRAINED MODEL LOCALLY /////
+	await model.save('downloads://isign_model');
+
+
 	///// PREDICT /////
 	//run prediction on test data. predict takes in and returns a tensor.
 	const results = model.predict(test_inputs)
@@ -173,20 +172,16 @@ async function run() {
 
 
 	////Map through prediction array to convert those arrays into labels
-	const one_hot_prediction = prediction.map((p_array) => {
-		const idx_of_highest = p_array.indexOf(Math.max(...p_array));
-		const one_hot_p = [0, 0, 0, 0];
-		one_hot_p[idx_of_highest] = 1;
-		return one_hot_p;
-	});
+	const one_hot_prediction = encoder.prediction_to_one_hot(prediction);
 	console.log('prediction array as one hot arrays: ', one_hot_prediction);
 
 	//translate prediction into labels
-	const translated = translate_predictions(one_hot_prediction)
+	const translated = encoder.decode_one_hot(one_hot_prediction)
 	console.log('translated predictions: ', translated)
 
 	//compare one_hot_prediction with test_labels
 	const test_actual = await test_labels.array()
+	console.log('test actual: ', test_actual)
 	let match_count = 0;
 	for (let i = 0; i < one_hot_prediction.length; i++) {
 		if (JSON.stringify(one_hot_prediction[i]) === JSON.stringify(test_actual[i])) {
